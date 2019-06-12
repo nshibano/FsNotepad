@@ -662,7 +662,7 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
     member this.TextFileHandle
         with get() = textFileHandle
         and set x = textFileHandle <- x
-
+    member this.OpenPath path = openPath path
     override this.OnFormClosing(ev) =
         let ensured = ensure()
         if not ensured then

@@ -28,6 +28,9 @@ let main args =
             | Some h -> Path.GetFileName (h.OriginalPath)
         let text = Doc.getAllString editor.Doc
         File.WriteAllText(Path.Combine(logDir, id + name), text))
+    
+    if args.Length > 0 then
+        editor.OpenPath args.[0]
 
     Application.Run(editor)
 
