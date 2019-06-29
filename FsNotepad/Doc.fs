@@ -271,6 +271,8 @@ module Doc =
 
     let symbolIsSpaceOrTab (symbol : string) =
         symbol = " " || symbol = "\t"
+    
+    let symbolIsWhitespace sym = symbolIsNewline sym || symbolIsSpaceOrTab sym
 
     let symbolIsAscii (symbol : string) =
         symbol.Length = 1 &&
@@ -664,12 +666,15 @@ module Doc =
                 let symbolIndexInRow = if symbolPosInRow = row.SymbolCount then row.SymbolCount - 1 else symbolPosInRow
                 let sym = row.GetSymbol(symbolIndexInRow)
                 if not (symbolIsNewline sym) then
-                    let targetIsWhitespace = symbolIsSpaceOrTab sym
+                    let isTarget =
+                        if symbolIsSpaceOrTab sym then
+                            symbolIsSpaceOrTab
+                        else (fun sym -> not (symbolIsWhitespace sym))
                     let mutable i = symbolIndexInRow
-                    while i - 1 >= 0 && (symbolIsSpaceOrTab (row.GetSymbol(i - 1)) = targetIsWhitespace) do
+                    while i - 1 >= 0 && isTarget (row.GetSymbol(i - 1)) do
                         i <- i - 1
                     let mutable j = symbolIndexInRow
-                    while j + 1 < row.SymbolCount && (symbolIsSpaceOrTab (row.GetSymbol(j + 1)) = targetIsWhitespace) do
+                    while j + 1 < row.SymbolCount && isTarget (row.GetSymbol(j + 1)) do
                         j <- j + 1
                     { sAnchorPos = rowRange.rBegin + row.CharOffsets.[i]; sCaretPos = rowRange.rBegin + row.CharOffsets.[j + 1] }
                 else
