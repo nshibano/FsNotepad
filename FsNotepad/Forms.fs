@@ -56,7 +56,6 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
     let mutable caretXPos = 0
     let mutable textFileHandle = textFileHandle
     let mutable latestCommitDate = DateTime.MinValue
-    let mutable infoText : string option = None
 
     let resetCaretXPos() =
         caretXPos <- (Doc.getCaretPoint undoTree.Get).X
@@ -331,69 +330,66 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
         
         g.Clear(bgColor)
 
-        if infoText = None then
-            let posDesc =
-                if doc.Selection.Length = 0 then
-                    sprintf "%d" doc.Selection.sCaretPos
-                else
-                    sprintf "%d-%d" doc.Selection.sAnchorPos doc.Selection.sCaretPos
+        let posDesc =
+            if doc.Selection.Length = 0 then
+                sprintf "%d" doc.Selection.sCaretPos
+            else
+                sprintf "%d-%d" doc.Selection.sAnchorPos doc.Selection.sCaretPos
 
-            let symbolDesc =
-                if doc.Selection.sCaretPos = doc.CharCount then "EOF"
-                else
-                    let symbol = Doc.getSymbolFromCharPos doc doc.Selection.sCaretPos
-                    let name =
-                        match symbol with
-                        | " " -> "SP"
-                        | "\r" -> "CR"
-                        | "\n" -> "LF"
-                        | "\r\n" -> "CRLF"
-                        | "\t" -> "TAB"
-                        | "\uFEFF" -> "BOM"
-                        | _ -> symbol
-                    let code =
-                        match symbol with
-                        | "\r\n" -> "(U+0D U+0A)"
-                        | _ ->
-                            let codepoint = Char.ConvertToUtf32(symbol, 0)
-                            if codepoint <= 0xFF then
-                                sprintf "(U+%02x)" codepoint
-                            elif codepoint <= 0xFFFF then
-                                sprintf "(U+%04x)" codepoint
-                            else
-                                sprintf "(U+%06x)" codepoint
-                    name + " " + code
+        let symbolDesc =
+            if doc.Selection.sCaretPos = doc.CharCount then "EOF"
+            else
+                let symbol = Doc.getSymbolFromCharPos doc doc.Selection.sCaretPos
+                let name =
+                    match symbol with
+                    | " " -> "SP"
+                    | "\r" -> "CR"
+                    | "\n" -> "LF"
+                    | "\r\n" -> "CRLF"
+                    | "\t" -> "TAB"
+                    | "\uFEFF" -> "BOM"
+                    | _ -> symbol
+                let code =
+                    match symbol with
+                    | "\r\n" -> "(U+0D U+0A)"
+                    | _ ->
+                        let codepoint = Char.ConvertToUtf32(symbol, 0)
+                        if codepoint <= 0xFF then
+                            sprintf "(U+%02x)" codepoint
+                        elif codepoint <= 0xFFFF then
+                            sprintf "(U+%04x)" codepoint
+                        else
+                            sprintf "(U+%06x)" codepoint
+                name + " " + code
        
         
-            let leftLine =
-                sprintf "r%d%s a%d b%d"
-                    undoTree.Current.Revision
-                    (if lastlySavedRevision <> undoTree.Current.Revision then "*" else "")
-                    undoTree.Current.RevisionsAhead
-                    undoTree.Current.Next.Count
-            g.DrawString(leftLine, statusFont, Brushes.White, 0.f, 1.f, StringFormat.GenericTypographic)
+        let leftLine =
+            sprintf "r%d%s a%d b%d"
+                undoTree.Current.Revision
+                (if lastlySavedRevision <> undoTree.Current.Revision then "*" else "")
+                undoTree.Current.RevisionsAhead
+                undoTree.Current.Next.Count
+        g.DrawString(leftLine, statusFont, Brushes.White, 0.f, 1.f, StringFormat.GenericTypographic)
 
-            let centerLine = sprintf "%s %s" posDesc symbolDesc
-            use sfCenter = new StringFormat(StringFormat.GenericTypographic)
-            sfCenter.Alignment <- StringAlignment.Center
-            g.DrawString(centerLine, statusFont, Brushes.White, float32 ((statusArea.Left + statusArea.Right) / 2), 1.f, sfCenter)
+        let centerLine = sprintf "%s %s" posDesc symbolDesc
+        use sfCenter = new StringFormat(StringFormat.GenericTypographic)
+        sfCenter.Alignment <- StringAlignment.Center
+        g.DrawString(centerLine, statusFont, Brushes.White, float32 ((statusArea.Left + statusArea.Right) / 2), 1.f, sfCenter)
 
-            let encoding = getEncoding()
-            let rightLine =
-                match encoding with
-                | UTF8 | SJIS when doc.RowTree.RootMeasure.IsAsciiOnly ->
-                    "ASCII"
+        let encoding = getEncoding()
+        let rightLine =
+            match encoding with
+            | UTF8 | SJIS when doc.RowTree.RootMeasure.IsAsciiOnly ->
+                "ASCII"
+            | _ ->
+                match encoding with 
+                | UTF8 | UTF8BOM ->
+                    sprintf "UTF8 %s %s" (match encoding with UTF8 -> "NOBOM" | UTF8BOM -> "BOM" | _ -> dontcare()) (getLineEnding().ToString())
                 | _ ->
-                    match encoding with 
-                    | UTF8 | UTF8BOM ->
-                        sprintf "UTF8 %s %s" (match encoding with UTF8 -> "NOBOM" | UTF8BOM -> "BOM" | _ -> dontcare()) (getLineEnding().ToString())
-                    | _ ->
-                        sprintf "%s %s" (encoding.ToString()) (getLineEnding().ToString())
-            use sfRight = new StringFormat(StringFormat.GenericTypographic)
-            sfRight.Alignment <- StringAlignment.Far
-            g.DrawString(rightLine, statusFont, Brushes.White, float32 statusArea.Right, 1.f, sfRight)
-        else
-            g.DrawString(infoText.Value, statusFont, Brushes.White, 0.f, 1.f, StringFormat.GenericTypographic)
+                    sprintf "%s %s" (encoding.ToString()) (getLineEnding().ToString())
+        use sfRight = new StringFormat(StringFormat.GenericTypographic)
+        sfRight.Alignment <- StringAlignment.Far
+        g.DrawString(rightLine, statusFont, Brushes.White, float32 statusArea.Right, 1.f, sfRight)
 
         buf.Render()
 
@@ -436,19 +432,7 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
             upd false
  
     let mouseMove (ev : MouseEventArgs) =
-        if state = Idle then
-            let dp = getDp ev.Location
-            let doc = undoTree.Get
-            let idx = Doc.getCharIndexFromPoint doc dp
-            let ci =
-                match idx with
-                | Some idx -> Doc.getColorInfo doc idx
-                | None -> Doc.ColorInfo_Default
-            if ci.ciText <> infoText then
-                infoText <- ci.ciText
-                upd false
-
-        elif state = LeftDown && ev.Button.HasFlag(MouseButtons.Left) then
+        if state = LeftDown && ev.Button.HasFlag(MouseButtons.Left) then
             let dp = getDp ev.Location
             let doc = undoTree.Get
             let pos = Doc.getCharPosFromPoint doc dp

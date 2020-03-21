@@ -11,8 +11,7 @@ open System.Diagnostics
 type ColorInfo =
     { ciForeColor : Color option
       ciBackColor : Color option
-      ciUnderlineColor : Color option
-      ciText : string option }
+      ciUnderlineColor : Color option }
 
 // Terminology
 //
@@ -198,7 +197,7 @@ module Doc =
             intArrayCache.Add(x, x)
             x
 
-    let ColorInfo_Default = { ciForeColor = None; ciBackColor = None; ciUnderlineColor = None; ciText = None }
+    let ColorInfo_Default = { ciForeColor = None; ciBackColor = None; ciUnderlineColor = None }
     let clearColorInfoArrays = List<ColorInfo array>()
 
     let colorInfoArrayIsClear (ary : ColorInfo array) =
