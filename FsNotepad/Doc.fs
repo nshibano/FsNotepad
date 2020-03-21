@@ -40,7 +40,8 @@ type Row =
       Colors : ColorInfo array // row.String.Length = row.Colors.Length
       CharOffsets : int array
       XOffsets : int array
-      IsEndOfLine : bool }
+      IsEndOfLine : bool
+      IsAsciiOnly : bool }
     
     member row.SymbolCount = row.CharOffsets.Length - 1
     member row.GetSymbol(symbolIndex : int) =
@@ -52,7 +53,8 @@ type Row =
 type RowTreeInfo =
     { CharCount : int
       EndOfLineCount : int
-      MaximumWidth : int }
+      MaximumWidth : int
+      IsAsciiOnly : bool }
 
 type FontSpec =
     | Ja_Consolas_MSGothic
@@ -212,7 +214,7 @@ module Doc =
             clearColorInfoArrayCreate ary.Length
         else ary
 
-    let RowTreeInfo_Zero = { CharCount = 0; EndOfLineCount = 0; MaximumWidth = 0 }
+    let RowTreeInfo_Zero = { CharCount = 0; EndOfLineCount = 0; MaximumWidth = 0; IsAsciiOnly = true }
     let Selection_Zero = { sCaretPos = 0; sAnchorPos = 0 }
 
     /// Returns index of the table item which is equal to the key.
@@ -323,12 +325,14 @@ module Doc =
           Colors = [||]
           CharOffsets = [| 0 |]
           XOffsets = [| 0 |]
-          IsEndOfLine = false }
+          IsEndOfLine = false
+          IsAsciiOnly = true }
     
     let rowTreeFunc (left : RowTreeInfo) (row : Row) (right : RowTreeInfo) =
         { CharCount = left.CharCount + row.String.Length + right.CharCount
           EndOfLineCount = left.EndOfLineCount + (if row.IsEndOfLine then 1 else 0) + right.EndOfLineCount
-          MaximumWidth = max (max left.MaximumWidth row.Width) right.MaximumWidth }
+          MaximumWidth = max (max left.MaximumWidth row.Width) right.MaximumWidth
+          IsAsciiOnly = left.IsAsciiOnly && row.IsAsciiOnly && right.IsAsciiOnly }
     
     let mutable contentIdTop = 0
     let contentIdNew() =
@@ -530,6 +534,7 @@ module Doc =
                 charPos <- charPos + symbol.Length
                 xOffset <- nextXOffset
             
+            let mutable isAsciiOnly = true            
             let mutable cont = true
             while cont && scanStart + charPos < charCount do
 
@@ -542,6 +547,8 @@ module Doc =
                         else String(c0, 1)
                     else String(c0, 1)
                 
+                isAsciiOnly <- isAsciiOnly && (symbol = "\r\n" || (symbol.Length = 1 && (let c = symbol.[0] in '\x20' <= c && c <= '\x7e')))
+
                 match symbol with
                 | "\t" ->
                     let xOffsetAfterAdd = ((xOffset / tabWidthInPixels + 1) * tabWidthInPixels)
@@ -566,13 +573,14 @@ module Doc =
                 rowString.Length > 0 &&
                 let c = rowString.[rowString.Length - 1]
                 c = '\r' || c = '\n'
-
+            
             let row =
                 { String = rowString
                   Colors = colorInfoArrayIntern colors
                   CharOffsets = intArrayIntern(charPoss.ToArray())
                   XOffsets = intArrayIntern (xOffsets.ToArray())
-                  IsEndOfLine = isEol }
+                  IsEndOfLine = isEol
+                  IsAsciiOnly = isAsciiOnly }
             head <- head.Add(row)
 
             while buf.Count < rowString.Length do

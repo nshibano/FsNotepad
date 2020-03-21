@@ -380,11 +380,15 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
 
             let encoding = getEncoding()
             let rightLine =
-                match encoding with 
-                | UTF8 | UTF8BOM ->
-                    sprintf "UTF8 %s %s" (match encoding with UTF8 -> "NOBOM" | UTF8BOM -> "BOM" | _ -> dontcare()) (getLineEnding().ToString())
+                match encoding with
+                | UTF8 | SJIS when doc.RowTree.RootMeasure.IsAsciiOnly ->
+                    "ASCII"
                 | _ ->
-                    sprintf "%s %s" (encoding.ToString()) (getLineEnding().ToString())
+                    match encoding with 
+                    | UTF8 | UTF8BOM ->
+                        sprintf "UTF8 %s %s" (match encoding with UTF8 -> "NOBOM" | UTF8BOM -> "BOM" | _ -> dontcare()) (getLineEnding().ToString())
+                    | _ ->
+                        sprintf "%s %s" (encoding.ToString()) (getLineEnding().ToString())
             use sfRight = new StringFormat(StringFormat.GenericTypographic)
             sfRight.Alignment <- StringAlignment.Far
             g.DrawString(rightLine, statusFont, Brushes.White, float32 statusArea.Right, 1.f, sfRight)
