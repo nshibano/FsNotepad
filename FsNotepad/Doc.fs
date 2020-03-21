@@ -546,7 +546,7 @@ module Doc =
                         else String(c0, 1)
                     else String(c0, 1)
                 
-                isAsciiOnly <- isAsciiOnly && (symbol = "\r\n" || (symbol.Length = 1 && (let c = symbol.[0] in '\x20' <= c && c <= '\x7e')))
+                isAsciiOnly <- isAsciiOnly && (symbol = "\r\n" || symbol = "\t" ||  (symbol.Length = 1 && (let c = symbol.[0] in '\x20' <= c && c <= '\x7e')))
 
                 match symbol with
                 | "\t" ->
