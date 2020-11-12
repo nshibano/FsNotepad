@@ -237,18 +237,14 @@ let trySaveAs (oldHandle : TextFileHandle option) (newText : string) =
         let encoding = snd (encodings.[comboBox.SelectedIndex])
         let bytes = encode encoding newText
         let lineEnding = detectLineEnding newText
-        let path =
-            if Path.GetExtension(dialog.FileName) = "" && dialog.SelectedFileTypeIndex = 1 (* 1-based index *) then
-                dialog.FileName + ".txt"
-            else dialog.FileName
         let mutable fd = null : FileStream
         try
-           fd <- new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read)
+           fd <- new FileStream(dialog.FileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read)
            fd.Seek(0L, SeekOrigin.Begin) |> ignore
            fd.Write(bytes, 0, bytes.Length)
            fd.SetLength(int64 bytes.Length)
            fd.Flush()
-           TSARsuccess { OriginalPath = path; FileStream = fd; LatestText = newText; TextEncoding = encoding; LineEnding = lineEnding }
+           TSARsuccess { OriginalPath = dialog.FileName; FileStream = fd; LatestText = newText; TextEncoding = encoding; LineEnding = lineEnding }
         with exn ->
             if not (isNull fd) then fd.Dispose()
             TSARfailed exn
