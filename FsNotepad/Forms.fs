@@ -203,38 +203,36 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
     let getNewlineString() = match getLineEnding() with CRLF -> "\r\n" | LF -> "\n" | CR -> "\r"
     let getEncoding() = match textFileHandle with None -> UTF8 | Some handle -> handle.TextEncoding
 
-    let defaultKeyDown (kd : KeyDown) =
-        match kd with
-        | { kdKey = Kenter } ->
+    let defaultKeyDown (keys : Keys) =
+        let keyCode = Keys.KeyCode &&& keys
+        let shift = Keys.Shift &&& keys <> Keys.None
+        let control = Keys.Control &&& keys <> Keys.None
+        match keyCode, shift, control with
+        | Keys.Enter, _, _ ->
             input_upd true (getNewlineString())
-        | { kdKey = Kspace } -> input_upd false " "
-        | { kdKey = Ktab } -> input_upd false "\t"
-        | { kdKey = Kback }
-        | { kdKey = Kdelete } ->
+        | Keys.Space, _, _ -> input_upd false " "
+        | Keys.Tab, _ , _ -> input_upd false "\t"
+        | (Keys.Back | Keys.Delete), _, _ ->
             let atomic = undoTree.Get.Selection.Length <> 0
-            match Doc.backDelete (kd.kdKey = Kdelete) undoTree.Get with
+            match Doc.backDelete (keyCode = Keys.Delete) undoTree.Get with
             | Some newDoc ->
                 commit newDoc atomic
             | None -> beep()
             upd true
-        | { kdKey = Kleft; kdShift = false }
-        | { kdKey = Kright; kdShift = false } ->
-            match Doc.leftRight (kd.kdKey = Kright) undoTree.Get with
+        | (Keys.Left | Keys.Right), false, _ ->
+            match Doc.leftRight (keyCode = Keys.Right) undoTree.Get with
             | Some newDoc -> undoTree.Amend newDoc
             | None -> beep()
             resetCaretXPos()
             upd true
-        | { kdKey = Kleft; kdShift = true }
-        | { kdKey = Kright; kdShift = true } ->
-            match Doc.shiftLeftRight (kd.kdKey = Kright) undoTree.Get with
+        | (Keys.Left | Keys.Right), true, _ ->
+            match Doc.shiftLeftRight (keyCode = Keys.Right) undoTree.Get with
             | Some newDoc -> undoTree.Amend(newDoc)
             | None -> beep()
             resetCaretXPos()
             upd true
-        | { kdKey = Kup }
-        | { kdKey = Kdown } ->
-            let down = (kd.kdKey = Kdown)
-            let shift = kd.kdShift
+        | (Keys.Up | Keys.Down), _, _ ->
+            let down = (keyCode = Keys.Down)
             let doc = undoTree.Get
             let dp = Doc.getCaretPoint doc
             let y =
@@ -257,21 +255,21 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
                 else
                     undoTree.Amend({ doc with Selection = { sAnchorPos = pos; sCaretPos = pos }})
             upd true
-        | { kdKey = Kx; kdControl = true } ->
+        | Keys.X, _, true ->
             cut_upd()
-        | { kdKey = Kc; kdControl = true } ->
+        | Keys.C, _, true ->
             copy()
-        | { kdKey = Kv; kdControl = true } ->
+        | Keys.V, _, true ->
             paste_upd()
-        | { kdKey = Ka; kdControl = true } ->
+        | Keys.A, _, true ->
             selectAll_upd()
-        | { kdKey = Kz; kdControl = true } ->
+        | Keys.Z, _, true ->
             undoUpd()
-        | { kdKey = Ky; kdControl = true }
-        | { kdKey = Kz; kdShift = true; kdControl = true } ->
+        | Keys.Y, _, true
+        | Keys.Z, true, true ->
             redoUpd()
             upd true
-        | { kdKey = Kf5 } ->
+        | Keys.F5, _, _ ->
             GC.Collect()
             upd false
         | _ -> ()
@@ -571,10 +569,7 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
             upd false)
 
         textArea.KeyDown.Add(fun ev ->
-            match KeyDown.CreateFromKeyData(ev.KeyData) with
-            | Some kd ->
-                defaultKeyDown kd
-            | None -> ()
+            defaultKeyDown ev.KeyData
             ev.Handled <- true)
         textArea.KeyPress.Add(keyPress)
         textArea.Paint.Add(textAreaPaint)
@@ -639,7 +634,6 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
     member this.Doc = undoTree.Get
     member this.Input atomic s = input_upd atomic s
     member this.Amend newDoc = undoTree.Amend(newDoc)
-    member this.DefaultKeyDown e = defaultKeyDown e
     member this.GetNewlineString() = getNewlineString()
     member this.EditorText
         with get() = Doc.getAllString undoTree.Get

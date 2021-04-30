@@ -56,7 +56,6 @@
     <Compile Include="UndoTree.fs" />
     <Compile Include="Doc.fs" />
     <Compile Include="FileHelper.fs" />
-    <Compile Include="Key.fs" />
     <Compile Include="Forms.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
