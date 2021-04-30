@@ -207,31 +207,34 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
         let keyCode = Keys.KeyCode &&& keys
         let shift = Keys.Shift &&& keys <> Keys.None
         let control = Keys.Control &&& keys <> Keys.None
-        match keyCode, shift, control with
-        | Keys.Enter, _, _ ->
-            input_upd true (getNewlineString())
-        | Keys.Space, _, _ -> input_upd false " "
-        | Keys.Tab, _ , _ -> input_upd false "\t"
-        | (Keys.Back | Keys.Delete), _, _ ->
+        match keyCode with
+        | Keys.Enter -> input_upd true (getNewlineString())
+        | Keys.Space -> input_upd false " "
+        | Keys.Tab -> input_upd false "\t"
+        | Keys.Back 
+        | Keys.Delete ->
             let atomic = undoTree.Get.Selection.Length <> 0
             match Doc.backDelete (keyCode = Keys.Delete) undoTree.Get with
             | Some newDoc ->
                 commit newDoc atomic
             | None -> beep()
             upd true
-        | (Keys.Left | Keys.Right), false, _ ->
-            match Doc.leftRight (keyCode = Keys.Right) undoTree.Get with
-            | Some newDoc -> undoTree.Amend newDoc
-            | None -> beep()
-            resetCaretXPos()
-            upd true
-        | (Keys.Left | Keys.Right), true, _ ->
-            match Doc.shiftLeftRight (keyCode = Keys.Right) undoTree.Get with
-            | Some newDoc -> undoTree.Amend(newDoc)
-            | None -> beep()
-            resetCaretXPos()
-            upd true
-        | (Keys.Up | Keys.Down), _, _ ->
+        | Keys.Left 
+        | Keys.Right ->
+            if shift then
+                match Doc.shiftLeftRight (keyCode = Keys.Right) undoTree.Get with
+                | Some newDoc -> undoTree.Amend(newDoc)
+                | None -> beep()
+                resetCaretXPos()
+                upd true
+            else
+                match Doc.leftRight (keyCode = Keys.Right) undoTree.Get with
+                | Some newDoc -> undoTree.Amend newDoc
+                | None -> beep()
+                resetCaretXPos()
+                upd true
+        | Keys.Up 
+        | Keys.Down ->
             let down = (keyCode = Keys.Down)
             let doc = undoTree.Get
             let dp = Doc.getCaretPoint doc
@@ -255,21 +258,27 @@ and Editor(textFileHandle : FileHelper.TextFileHandle option) as this =
                 else
                     undoTree.Amend({ doc with Selection = { sAnchorPos = pos; sCaretPos = pos }})
             upd true
-        | Keys.X, _, true ->
-            cut_upd()
-        | Keys.C, _, true ->
-            copy()
-        | Keys.V, _, true ->
-            paste_upd()
-        | Keys.A, _, true ->
-            selectAll_upd()
-        | Keys.Z, _, true ->
-            undoUpd()
-        | Keys.Y, _, true
-        | Keys.Z, true, true ->
-            redoUpd()
-            upd true
-        | Keys.F5, _, _ ->
+        | Keys.X ->
+            if control then
+                cut_upd()
+        | Keys.C ->
+            if control then
+                copy()
+        | Keys.V ->
+            if control then
+                paste_upd()
+        | Keys.A ->
+            if control then
+                selectAll_upd()
+        | Keys.Z ->
+            if control && shift then
+                redoUpd()
+            elif control then
+                undoUpd()
+        | Keys.Y ->
+            if control then
+                redoUpd()
+        | Keys.F5 ->
             GC.Collect()
             upd false
         | _ -> ()
